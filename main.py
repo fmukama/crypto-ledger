@@ -1,4 +1,5 @@
 import logging
+import time
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -7,6 +8,12 @@ from pydantic import BaseModel, Field
 
 from blockchain import Blockchain
 
+# Logging configuration (Sprint 2 improvement: one format for the whole app)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+)
 logger = logging.getLogger("ledger.api")
 
 APP_VERSION = "2.0.0"
@@ -24,6 +31,19 @@ def create_app() -> FastAPI:
     Tests use this to get full isolation between test cases."""
     app = FastAPI(title="Single-Node Cryptographic Ledger", version=APP_VERSION)
     ledger = Blockchain()
+    started_at = time.time()
+
+    
+    # Observability middleware (Sprint 2): log every request + latency
+    
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("%s %s -> %d (%.1f ms)", request.method,
+                    request.url.path, response.status_code, elapsed_ms)
+        return response
 
     # FastAPI returns 422 for schema violations by default; our Acceptance
     # Criteria demand 400 Bad Request, so we override the handler.
@@ -104,7 +124,7 @@ def create_app() -> FastAPI:
 
     
     # User Story 4 -- Inspect blocks and balances   [Sprint 2]
-   
+    
     @app.get("/blocks/{index}")
     def get_block(index: int):
         """Return one block by index, or 404 if it does not exist."""
@@ -118,6 +138,20 @@ def create_app() -> FastAPI:
     def get_balance(address: str):
         """Net confirmed balance for an address (mined blocks only)."""
         return {"address": address, "balance": ledger.get_balance(address)}
+
+    
+    # User Story 5 -- Node health telemetry [Sprint 2]
+    
+    @app.get("/health")
+    def health():
+        """Liveness + basic telemetry for monitoring tools."""
+        return {
+            "status": "healthy",
+            "current_block_height": len(ledger.chain) - 1,
+            "pending_mempool_size": len(ledger.mempool),
+            "uptime_seconds": round(time.time() - started_at, 2),
+            "version": APP_VERSION,
+        }
 
     return app
 
