@@ -10,6 +10,7 @@ def ledger():
     """A fresh, isolated chain for every single test."""
     return Blockchain()
 
+
 # User Story 1: genesis & hashing
 
 def test_chain_starts_with_genesis_block(ledger):

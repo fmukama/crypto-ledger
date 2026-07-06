@@ -9,7 +9,8 @@ from main import create_app
 @pytest.fixture
 def client():
     """Fresh app + fresh chain per test => no state leaks between tests."""
-    return TestClient(create_app(   ))
+    return TestClient(create_app())
+
 
 # User Story 1: GET /chain
 
@@ -33,7 +34,7 @@ def test_post_valid_transaction_returns_201(client):
 
 
 def test_post_transaction_missing_field_returns_400(client):
-    response = client.post("/transactions",json={"sender": "alice", "amount": 5})
+    response = client.post("/transactions", json={"sender": "alice", "amount": 5})
     assert response.status_code == 400
 
 

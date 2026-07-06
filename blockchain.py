@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-import time 
+import time
 
 logger = logging.getLogger("ledger.core")
 
@@ -123,9 +123,8 @@ class Blockchain:
                     new_block["index"], len(new_block["transactions"]))
         return new_block
 
-
     # User Story 4 -- Inspect blocks and balances [Sprint 2]
-   
+
     def get_block(self, index):
         """Return the block at `index`, or None if it does not exist."""
         if 0 <= index < len(self.chain):
@@ -147,9 +146,7 @@ class Blockchain:
                     balance -= tx["amount"]
         return balance
 
-   
     # Chain integrity audit
-   
 
     def is_valid(self):
         """Recompute every hash and verify each block links to its parent.
