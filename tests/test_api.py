@@ -51,3 +51,61 @@ def test_mempool_lists_pending_transactions(client):
     response = client.get("/mempool")
     assert response.status_code == 200
     assert response.json()["count"] == 1
+
+
+# User Story 3: POST /mine
+
+def test_mine_returns_new_block_and_clears_mempool(client):
+    client.post("/transactions",
+                json={"sender": "a", "recipient": "b", "amount": 2})
+    response = client.post("/mine")
+    assert response.status_code == 200
+    assert response.json()["block"]["index"] == 1
+    assert client.get("/mempool").json()["count"] == 0
+
+
+def test_mine_with_empty_mempool_returns_400(client):
+    assert client.post("/mine").status_code == 400
+
+
+# User Story 4: GET /blocks/{index} + GET /balance/{address}
+
+def test_get_existing_block_returns_200(client):
+    response = client.get("/blocks/0")
+    assert response.status_code == 200
+    assert response.json()["index"] == 0
+
+
+def test_get_missing_block_returns_404(client):
+    assert client.get("/blocks/999").status_code == 404
+
+
+def test_balance_endpoint_aggregates_mined_transactions(client):
+    client.post("/transactions",
+                json={"sender": "a", "recipient": "b", "amount": 7})
+    client.post("/mine")
+    response = client.get("/balance/b")
+    assert response.status_code == 200
+    assert response.json()["balance"] == 7
+
+
+# User Story 5: GET /health
+
+def test_health_reports_status_and_telemetry(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert body["current_block_height"] == 0     # only genesis so far
+    assert body["pending_mempool_size"] == 0
+
+
+def test_health_telemetry_tracks_state_changes(client):
+    client.post("/transactions",
+                json={"sender": "a", "recipient": "b", "amount": 3})
+    body = client.get("/health").json()
+    assert body["pending_mempool_size"] == 1
+    client.post("/mine")
+    body = client.get("/health").json()
+    assert body["current_block_height"] == 1
+    assert body["pending_mempool_size"] == 0
