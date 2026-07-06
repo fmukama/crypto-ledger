@@ -1,3 +1,6 @@
+# CI pipeline for the Single-Node Cryptographic Ledger.
+# Sprint 1: single "test" job (checkout -> Python -> deps -> pytest).
+# Sprint 2 (retro improvement #1): added the "lint" job with flake8.
 name: CI Pipeline
 
 on:
@@ -7,6 +10,26 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: Lint (flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run flake8 style checks
+        run: flake8 .
+
   test:
     name: Unit & integration tests (pytest)
     runs-on: ubuntu-latest
