@@ -122,3 +122,46 @@ class Blockchain:
         logger.info("Block #%d appended with %d transaction(s).",
                     new_block["index"], len(new_block["transactions"]))
         return new_block
+
+
+    # User Story 4 -- Inspect blocks and balances [Sprint 2]
+   
+    def get_block(self, index):
+        """Return the block at `index`, or None if it does not exist."""
+        if 0 <= index < len(self.chain):
+            return self.chain[index]
+        return None
+
+    def get_balance(self, address):
+        """Net balance = sum(received) - sum(sent) over all MINED blocks.
+
+        Pending mempool transactions are intentionally excluded: they are
+        not yet confirmed, so they must not affect a spendable balance.
+        """
+        balance = 0
+        for block in self.chain:
+            for tx in block["transactions"]:
+                if tx["recipient"] == address:
+                    balance += tx["amount"]
+                if tx["sender"] == address:
+                    balance -= tx["amount"]
+        return balance
+
+   
+    # Chain integrity audit
+   
+
+    def is_valid(self):
+        """Recompute every hash and verify each block links to its parent.
+
+        Returns False if ANY block was tampered with or any link is broken.
+        """
+        for i in range(1, len(self.chain)):
+            current, previous = self.chain[i], self.chain[i - 1]
+            if current["previous_hash"] != previous["hash"]:
+                logger.error("Broken link at block #%d", current["index"])
+                return False
+            if current["hash"] != self.hash_block(current):
+                logger.error("Tampered content at block #%d", current["index"])
+                return False
+        return True

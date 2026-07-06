@@ -102,6 +102,23 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc))
         return {"message": "New block mined.", "block": block}
 
+    
+    # User Story 4 -- Inspect blocks and balances   [Sprint 2]
+   
+    @app.get("/blocks/{index}")
+    def get_block(index: int):
+        """Return one block by index, or 404 if it does not exist."""
+        block = ledger.get_block(index)
+        if block is None:
+            raise HTTPException(status_code=404,
+                                 detail=f"Block {index} does not exist.")
+        return block
+
+    @app.get("/balance/{address}")
+    def get_balance(address: str):
+        """Net confirmed balance for an address (mined blocks only)."""
+        return {"address": address, "balance": ledger.get_balance(address)}
+
     return app
 
 
