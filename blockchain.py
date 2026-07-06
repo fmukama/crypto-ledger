@@ -1,8 +1,13 @@
 import hashlib
 import json
 import logging
+import time     # NEW: block timestamps + measuring PoW cost
 
 logger = logging.getLogger("ledger.core")
+
+# Proof-of-Work target: a valid block hash must START with this prefix.
+# Each extra hex zero multiplies the expected work by 16.
+DIFFICULTY_PREFIX = "00"
 
 
 class Blockchain:
@@ -66,3 +71,54 @@ class Blockchain:
         logger.info("TX queued: %s -> %s (amount=%s). Mempool size=%d",
                     sender, recipient, amount, len(self.mempool))
         return transaction
+
+    # User Story 3 -- Mining / Proof of Work               [Sprint 2]
+
+    def proof_of_work(self, block):
+        """Increment the nonce until the block hash starts with DIFFICULTY_PREFIX.
+
+        Math: a SHA-256 hex digest is uniform, so a single attempt succeeds
+        with p = (1/16)^d where d = len(prefix). For '00', p = 1/256 and the
+        attempt count follows a Geometric(p) distribution with E[attempts] =
+        1/p = 256. Cheap enough for tests, real enough to demonstrate PoW.
+        """
+        attempts = 0
+        started = time.perf_counter()
+
+        block["nonce"] = 0
+        candidate = self.hash_block(block)
+        while not candidate.startswith(DIFFICULTY_PREFIX):
+            block["nonce"] += 1
+            attempts += 1
+            candidate = self.hash_block(block)
+
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        # Observability (Sprint 2 improvement): log the cost of every PoW run.
+        logger.info("PoW solved: nonce=%d after %d attempts in %.2f ms",
+                    block["nonce"], attempts, elapsed_ms)
+        return candidate
+
+    def mine_block(self):
+        """Bundle the whole mempool into a new block, solve PoW, append, wipe.
+
+        Raises ValueError if the mempool is empty (nothing to mine).
+        Returns the newly appended block.
+        """
+        if not self.mempool:
+            raise ValueError("Mempool is empty -- nothing to mine.")
+
+        last_block = self.chain[-1]
+        new_block = {
+            "index": last_block["index"] + 1,
+            "timestamp": time.time(),
+            "transactions": list(self.mempool),      # snapshot of pending TXs
+            "previous_hash": last_block["hash"],     # cryptographic link
+            "nonce": 0,
+        }
+        new_block["hash"] = self.proof_of_work(new_block)
+
+        self.chain.append(new_block)
+        self.mempool = []   # Acceptance Criteria: mempool wiped after mining
+        logger.info("Block #%d appended with %d transaction(s).",
+                    new_block["index"], len(new_block["transactions"]))
+        return new_block

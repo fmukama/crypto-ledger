@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -9,7 +9,7 @@ from blockchain import Blockchain
 
 logger = logging.getLogger("ledger.api")
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 
 
 class TransactionIn(BaseModel):
@@ -17,7 +17,6 @@ class TransactionIn(BaseModel):
     sender: str = Field(min_length=1, examples=["alice"])
     recipient: str = Field(min_length=1, examples=["bob"])
     amount: float = Field(gt=0, examples=[25.0])
-
 
 
 def create_app() -> FastAPI:
@@ -28,25 +27,26 @@ def create_app() -> FastAPI:
 
     # FastAPI returns 422 for schema violations by default; our Acceptance
     # Criteria demand 400 Bad Request, so we override the handler.
-    
+
     @app.exception_handler(RequestValidationError)
     async def validation_to_400(request: Request, exc: RequestValidationError):
         details = [{"field": ".".join(str(part) for part in err["loc"]),
                     "issue": err["msg"]} for err in exc.errors()]
         logger.warning("Rejected payload on %s: %s", request.url.path, details)
-        return JSONResponse(status_code=400,content={"error": "Invalid request.","details": details})
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid request.", "details": details},
+        )
 
-    
     # User Story 1 -- View chain history
-    
+
     @app.get("/chain")
     def get_chain():
         """Return the full block history (genesis included)."""
         return {"length": len(ledger.chain), "chain": ledger.chain}
 
-    
     # User Story 2 -- Submit transactions
-    
+
     @app.post("/transactions", status_code=201)
     def post_transaction(tx: TransactionIn):
         """Queue a validated transaction in the mempool (201 Created)."""
@@ -57,6 +57,18 @@ def create_app() -> FastAPI:
     def get_mempool():
         """List transactions waiting to be mined."""
         return {"count": len(ledger.mempool), "pending": ledger.mempool}
+
+    # User Story 3 -- Mine pending transactions     [Sprint 2]
+
+    @app.post("/mine")
+    def mine():
+        """Run Proof-of-Work over the mempool and append the new block."""
+        try:
+            block = ledger.mine_block()
+        except ValueError as exc:            # empty mempool -> client error
+            logger.warning("Mining rejected: %s", exc)
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {"message": "New block mined.", "block": block}
 
     return app
 
