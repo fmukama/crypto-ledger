@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-import time     # NEW: block timestamps + measuring PoW cost
+import time 
 
 logger = logging.getLogger("ledger.core")
 
@@ -72,7 +72,7 @@ class Blockchain:
                     sender, recipient, amount, len(self.mempool))
         return transaction
 
-    # User Story 3 -- Mining / Proof of Work               [Sprint 2]
+    # User Story 3 -- Mining / Proof of Work [Sprint 2]
 
     def proof_of_work(self, block):
         """Increment the nonce until the block hash starts with DIFFICULTY_PREFIX.

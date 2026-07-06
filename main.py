@@ -58,9 +58,41 @@ def create_app() -> FastAPI:
         """List transactions waiting to be mined."""
         return {"count": len(ledger.mempool), "pending": ledger.mempool}
 
-    # User Story 3 -- Mine pending transactions     [Sprint 2]
+    # User Story 3 -- Mine pending transactions  [Sprint 2]
 
-    @app.post("/mine")
+    @app.post(
+        "/mine",
+        responses={
+            200: {
+                "description": "New block mined.",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "message": "New block mined.",
+                            "block": {
+                                "index": 1,
+                                "timestamp": 1783362316.0678701,
+                                "transactions": [
+                                    {"sender": "alice", "recipient": "bob", "amount": 10.0}
+                                ],
+                                "previous_hash": "0" * 64,
+                                "nonce": 137,
+                                "hash": "0000" + "a" * 60,
+                            },
+                        }
+                    }
+                },
+            },
+            400: {
+                "description": "Mempool is empty.",
+                "content": {
+                    "application/json": {
+                        "example": {"detail": "Mempool is empty -- nothing to mine."}
+                    }
+                },
+            },
+        },
+    )
     def mine():
         """Run Proof-of-Work over the mempool and append the new block."""
         try:
